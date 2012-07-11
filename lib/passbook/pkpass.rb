@@ -34,7 +34,12 @@ module Passbook
         sha1s['pass.json'] = Digest::SHA1.hexdigest @json
 
         @files.each do |file|
-          sha1s[File.basename(file)] = Digest::SHA1.file(file).hexdigest
+          if file.class == Hash
+            sha1s[file[:name]] = Digest::SHA1.hexdigest file[:blob]
+          else
+            sha1s[File.basename(file)] = Digest::SHA1.file(file).hexdigest
+          end
+          
         end
 
         return sha1s.to_json
