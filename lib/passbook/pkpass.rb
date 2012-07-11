@@ -1,5 +1,5 @@
 require 'digest/sha1'
-require 'OpenSSL'
+require 'openssl'
 require 'zip/zip'
 require 'base64'
 
