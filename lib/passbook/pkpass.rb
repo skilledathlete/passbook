@@ -11,8 +11,9 @@ module Passbook
       @files     = []
     end
 
-    def addFile file_path
-      @files << file_path
+    # String => path, Hash => {data, filename}
+    def addFile file_data
+      @files << file_data
     end
 
     def json= json
@@ -64,8 +65,13 @@ module Passbook
           z.print signature
 
           @files.each do |file|
-            z.put_next_entry File.basename(file)
-            z.print IO.read(file)
+            if file.class == Hash
+              z.put_next_entry file[:name]
+              z.print file[:blob]
+            else
+              z.put_next_entry File.basename(file)
+              z.print IO.read(file)
+            end
           end
         end
         path = t.path
