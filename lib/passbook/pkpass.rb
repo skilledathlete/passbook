@@ -14,7 +14,8 @@ module Passbook
     # String => path, Hash => {data, filename}
     def addFile file_data
       @files << file_data
-
+    end 
+    
     def addFiles files
       @files += files
     end
