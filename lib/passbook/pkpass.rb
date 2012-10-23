@@ -14,6 +14,9 @@ module Passbook
     # String => path, Hash => {data, filename}
     def addFile file_data
       @files << file_data
+
+    def addFiles files
+      @files += files
     end
 
     def json= json
@@ -22,12 +25,31 @@ module Passbook
 
     def create
       manifest = self.createManifest
-      signature = self.createSignature manifest
 
+      # Check pass for necessary files and fields
+      self.checkPass manifest
+
+      signature = self.createSignature manifest
       return self.createZip(manifest, signature)
     end
 
     protected
+
+      def checkPass manifest
+        # Check for default images
+        raise 'Icon missing' unless manifest.include?('icon.png')
+        raise 'Icon@2x missing' unless manifest.include?('icon@2x.png')
+        raise 'Logo missing' unless manifest.include?('logo.png')
+        raise 'Logo@2x missing' unless manifest.include?('logo@2x.png')
+
+        # Check for developer field in JSON
+        raise 'Pass Type Identifier missing' unless @json.include?('passTypeIdentifier')
+        raise 'Team Identifier missing' unless @json.include?('teamIdentifier')
+        raise 'Serial Number missing' unless @json.include?('serialNumber')
+        raise 'Organization Name Identifier missing' unless @json.include?('organizationName')
+        raise 'Format Version' unless @json.include?('formatVersion')
+        raise 'Description' unless @json.include?('description')
+      end
 
       def createManifest
         sha1s = {}
@@ -35,7 +57,7 @@ module Passbook
 
         @files.each do |file|
           if file.class == Hash
-            sha1s[file[:name]] = Digest::SHA1.hexdigest(file[:blob])
+            sha1s[file[:name]] = Digest::SHA1.hexdigest file[:content]
           else
             sha1s[File.basename(file)] = Digest::SHA1.file(file).hexdigest
           end
@@ -46,7 +68,8 @@ module Passbook
 
       def createSignature manifest
         p12   = OpenSSL::PKCS12.new File.read(Passbook.p12_cert), Passbook.p12_password
-        pk7   = OpenSSL::PKCS7.sign p12.certificate, p12.key, manifest.to_s, [], OpenSSL::PKCS7::BINARY | OpenSSL::PKCS7::DETACHED
+        wwdc  = OpenSSL::X509::Certificate.new File.read(Passbook.wwdc_cert)
+        pk7   = OpenSSL::PKCS7.sign p12.certificate, p12.key, manifest.to_s, [wwdc], OpenSSL::PKCS7::BINARY | OpenSSL::PKCS7::DETACHED
         data  = OpenSSL::PKCS7.write_smime pk7
 
         str_debut = "filename=\"smime.p7s\"\n\n"
@@ -71,7 +94,7 @@ module Passbook
           @files.each do |file|
             if file.class == Hash
               z.put_next_entry file[:name]
-              z.print file[:blob]
+              z.print file[:content]
             else
               z.put_next_entry File.basename(file)
               z.print IO.read(file)
